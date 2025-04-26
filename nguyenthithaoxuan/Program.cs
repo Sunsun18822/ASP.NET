@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 2. Cấu hình JWT Authentication (cho phép không cần chữ "Bearer")
+// 2. Cấu hình JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -27,14 +27,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]))
         };
 
-        // ✅ Cho phép sử dụng token trực tiếp mà không cần tiền tố "Bearer "
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
                 var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
 
-                // Nếu header KHÔNG bắt đầu bằng "Bearer ", thì gán token thủ công
                 if (!string.IsNullOrEmpty(authHeader) && !authHeader.StartsWith("Bearer "))
                 {
                     context.Token = authHeader;
@@ -45,12 +43,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// 3. Cấu hình Swagger hỗ trợ JWT KHÔNG cần "Bearer"
+// 3. Swagger + JWT config
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "NguyenThiThaoXuan API", Version = "v1" });
 
-    // 🔐 Định nghĩa security scheme tên "JWT"
     c.AddSecurityDefinition("JWT", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -61,7 +58,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Nhập vào token (KHÔNG cần chữ Bearer)."
     });
 
-    // 🔒 Bắt buộc mọi API đều yêu cầu token này
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -77,13 +73,21 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
+// 4. Thêm controller + config JSON
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
 });
 
-// 4. Thêm controller
-builder.Services.AddControllers();
+// ✅ Di chuyển CORS lên trước khi build
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy => policy.AllowAnyOrigin()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
+});
 
 // 5. Build app
 var app = builder.Build();
@@ -97,11 +101,7 @@ if (app.Environment.IsDevelopment())
 
 // 7. Middlewares
 app.UseHttpsRedirection();
-app.UseCors(policy =>
-    policy.AllowAnyOrigin()
-          .AllowAnyMethod()
-          .AllowAnyHeader()
-);
+app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -8,7 +8,6 @@
         public decimal Price { get; set; }
         public decimal? SalePrice { get; set; }
         public int Stock { get; set; } = 0;
-        public int? BrandId { get; set; }
         public int? CategoryId { get; set; }
         public string? ImageUrl { get; set; }
         public string Status { get; set; } = "Available";
@@ -17,8 +16,8 @@
         public DateTime? UpdatedAt { get; set; }
         public string? UpdatedBy { get; set; }
 
-        public Brand? Brand { get; set; }
         public Category? Category { get; set; }
+        public bool IsDeleted { get; set; } = false;
 
         public ICollection<CartItem>? CartItems { get; set; }
         public ICollection<OrderDetail>? OrderDetails { get; set; }

@@ -19,22 +19,31 @@ namespace nguyenthithaoxuan.Controllers
         }
 
         // GET: api/Product
+        [AllowAnonymous]
         [HttpGet]
-        //[AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<IEnumerable<Product>>> GetAvailableProducts()
         {
             return await _context.Products
-                .Include(p => p.Brand)
+                .Where(p => p.Status == "Available" && !p.IsDeleted)
+                .Include(p => p.Category)
+                .ToListAsync();
+        }
+
+        // GET: api/Product/all
+        [HttpGet("all")]
+        public async Task<ActionResult<IEnumerable<Product>>> GetAllProducts()
+        {
+            return await _context.Products
                 .Include(p => p.Category)
                 .ToListAsync();
         }
 
         // GET: api/Product/5
+        [AllowAnonymous]
         [HttpGet("{id}")]
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
             var product = await _context.Products
-                .Include(p => p.Brand)
                 .Include(p => p.Category)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -42,6 +51,20 @@ namespace nguyenthithaoxuan.Controllers
                 return NotFound();
 
             return product;
+        }
+
+        // PUT: api/Product/status/5
+        [HttpPut("status/{id}")]
+        public async Task<IActionResult> ToggleProductStatus(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null)
+                return NotFound();
+
+            product.Status = (product.Status == "Available") ? "Unavailable" : "Available";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Status updated", newStatus = product.Status });
         }
 
         // POST: api/Product
@@ -76,6 +99,44 @@ namespace nguyenthithaoxuan.Controllers
             }
 
             return NoContent();
+        }
+
+        // POST: api/Product/{id}/delete
+        [HttpPost("{id}/delete")]
+        public async Task<IActionResult> SoftDeleteProduct(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            product.IsDeleted = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Product moved to trash." });
+        }
+
+        // GET: api/Product/trash
+        [HttpGet("trash")]
+        public async Task<ActionResult<IEnumerable<Product>>> GetTrashedProducts()
+        {
+            var trashed = await _context.Products
+                .Where(p => p.IsDeleted)
+                .Include(p => p.Category)
+                .ToListAsync();
+
+            return trashed;
+        }
+
+        // POST: api/Product/{id}/restore
+        [HttpPost("{id}/restore")]
+        public async Task<IActionResult> RestoreProduct(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            product.IsDeleted = false;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Product restored." });
         }
 
         // DELETE: api/Product/5

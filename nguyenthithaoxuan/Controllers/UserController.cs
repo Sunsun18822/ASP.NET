@@ -22,7 +22,7 @@ namespace nguyenthithaoxuan.Controllers
         [HttpGet]
         public ActionResult<IEnumerable<User>> Get()
         {
-            var users = _context.Users.ToList();
+            var users = _context.Users.Where(u => !u.IsDeleted).ToList();
             return Ok(users);
         }
 
@@ -30,7 +30,7 @@ namespace nguyenthithaoxuan.Controllers
         [HttpGet("{id}")]
         public ActionResult<User> Get(int id)
         {
-            var user = _context.Users.Find(id);
+            var user = _context.Users.FirstOrDefault(u => u.Id == id && !u.IsDeleted);
             if (user == null)
                 return NotFound();
             return Ok(user);
@@ -63,6 +63,7 @@ namespace nguyenthithaoxuan.Controllers
             existingUser.Address = updatedUser.Address;
             existingUser.Role = updatedUser.Role;
             existingUser.Status = updatedUser.Status;
+            existingUser.IsDeleted = updatedUser.IsDeleted; // 👈 Cho phép thay đổi trạng thái ẩn/hiện
             existingUser.UpdatedAt = DateTime.UtcNow;
             existingUser.UpdatedBy = updatedUser.UpdatedBy;
 
@@ -70,12 +71,48 @@ namespace nguyenthithaoxuan.Controllers
             return NoContent();
         }
 
-        // DELETE: api/user/{id}
+        // DELETE: api/user/{id} - Soft delete
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> SoftDelete(int id)
         {
             var user = await _context.Users.FindAsync(id);
-            if (user == null)
+            if (user == null || user.IsDeleted)
+                return NotFound();
+
+            user.IsDeleted = true;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // GET: api/user/trash - Get all soft-deleted users
+        [HttpGet("trashed")]
+        public IActionResult GetTrashedUsers()
+        {
+            var deletedUsers = _context.Users
+                .Where(u => u.IsDeleted)
+                .ToList();
+            return Ok(deletedUsers);
+        }
+
+        // PUT: api/user/restore/{id} - Restore soft-deleted user
+        [HttpPut("restore/{id}")]
+        public async Task<IActionResult> Restore(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null || !user.IsDeleted)
+                return NotFound();
+
+            user.IsDeleted = false;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // DELETE: api/user/permanent/{id} - Permanent delete
+        [HttpDelete("permanent/{id}")]
+        public async Task<IActionResult> PermanentDelete(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null || !user.IsDeleted)
                 return NotFound();
 
             _context.Users.Remove(user);

@@ -14,6 +14,7 @@
         public string? CreatedBy { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public string? UpdatedBy { get; set; }
+        public bool IsDeleted { get; set; } = false;
 
         public ICollection<Cart>? Carts { get; set; }
         public ICollection<OrderTable>? Orders { get; set; }
